@@ -6,7 +6,7 @@ import { TareaService } from './services/tarea.service';
 import { StorageService } from './services/storage.service';
 import { NetworkService } from './services/network.service';
 
-type VistaActiva = 'catalogo' | 'detalle' | 'entregar' | 'bandeja';
+type VistaActiva = 'inicio' | 'catalogo' | 'detalle' | 'entregar' | 'bandeja' | 'perfil';
 
 @Component({
   selector: 'app-root',
@@ -20,9 +20,19 @@ export class App implements OnInit {
   private storageService = inject(StorageService);
   private networkService = inject(NetworkService);
 
-  // Estado de navegación
-  vistaActual = signal<VistaActiva>('catalogo');
+  // Estado de navegación con los 4 módulos principales solicitados
+  vistaActual = signal<VistaActiva>('inicio');
   menuAbierto = signal<boolean>(false);
+
+  // Perfil del estudiante (persistido en localStorage)
+  perfilEstudiante = signal({
+    nombre: 'André Zapata',
+    carrera: 'Ingeniería de Software con IA',
+    codigo: 'SEN-00482910',
+    semestre: 'VI Semestre',
+    sede: 'Lima - Sede Central',
+    correo: 'andrebryamzapatavega@gmail.com'
+  });
 
   // Lista de tareas cargadas desde JSON / cache
   tareas = signal<Tarea[]>([]);
