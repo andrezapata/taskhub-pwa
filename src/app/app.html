@@ -1,0 +1,566 @@
+<div class="taskhub-app">
+  <!-- BARRA DE ESTADO SUPERIOR CONECTIVIDAD Y BRANDING SENATI -->
+  <header class="app-header">
+    <div class="header-content">
+      <div class="brand-senati">
+        <div class="brand-badge">
+          <span class="senati-logo-symbol">S</span>
+          <span class="senati-name">SENATI</span>
+        </div>
+        <div class="brand-divider"></div>
+        <div class="app-info">
+          <h1 class="app-title">TaskHub PWA</h1>
+          <span class="app-subtitle">Organiza · Colabora · Avanza</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Indicador de Red Dinámico Online / Offline -->
+        <div class="connectivity-status" [class.is-online]="isOnline()" [class.is-offline]="!isOnline()">
+          <span class="status-dot"></span>
+          <div class="status-texts">
+            <span class="status-title">{{ isOnline() ? 'En Línea' : 'Sin Conexión (Offline)' }}</span>
+            <span class="status-desc">{{ isOnline() ? 'Listo para sincronizar' : 'Guardando en IndexedDB' }}</span>
+          </div>
+        </div>
+
+        <button class="pwa-badge" title="Aplicación Web Progresiva Activa">
+          <svg class="pwa-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+          <span>PWA</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navegación por Pestañas -->
+    <nav class="nav-tabs">
+      <button 
+        class="tab-btn" 
+        [class.active]="vistaActual() === 'catalogo'"
+        (click)="cambiarVista('catalogo')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7"></rect>
+          <rect x="14" y="3" width="7" height="7"></rect>
+          <rect x="14" y="14" width="7" height="7"></rect>
+          <rect x="3" y="14" width="7" height="7"></rect>
+        </svg>
+        <span>Tareas Académicas</span>
+      </button>
+
+      <button 
+        class="tab-btn" 
+        [class.active]="vistaActual() === 'bandeja'"
+        (click)="cambiarVista('bandeja')">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+          <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+        </svg>
+        <span>Mis Entregas Locales</span>
+        @if (totalPendientes() > 0) {
+          <span class="counter-badge">{{ totalPendientes() }}</span>
+        }
+      </button>
+    </nav>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="main-container">
+
+    <!-- 1. VISTA CATÁLOGO / LISTA DE TAREAS -->
+    @if (vistaActual() === 'catalogo') {
+      <section class="section-catalogo">
+        <!-- Banner de Bienvenida y Métricas del Alumno -->
+        <div class="student-hero">
+          <div class="student-info">
+            <div class="avatar-circle">
+              <span>AL</span>
+            </div>
+            <div>
+              <h2 class="welcome-text">Hola, Estudiante SENATI</h2>
+              <p class="welcome-sub">Aquí tienes tus actividades y entregas académicas</p>
+            </div>
+          </div>
+
+          <div class="stats-pills">
+            <div class="stat-pill stat-blue">
+              <span class="stat-number">{{ tareas().length }}</span>
+              <span class="stat-label">Total Tareas</span>
+            </div>
+            <div class="stat-pill stat-amber">
+              <span class="stat-number">{{ totalPendientes() }}</span>
+              <span class="stat-label">Pendientes Local</span>
+            </div>
+            <div class="stat-pill stat-green">
+              <span class="stat-number">{{ totalSincronizadas() }}</span>
+              <span class="stat-label">Sincronizadas</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Barra de Búsqueda y Filtros Combinables (Regla TH-01) -->
+        <div class="filter-toolbar">
+          <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input 
+              type="text" 
+              placeholder="Buscar por título de tarea o descripción..." 
+              [ngModel]="filtroTexto()"
+              (ngModelChange)="filtroTexto.set($event)"
+              class="search-input"
+            />
+            @if (filtroTexto()) {
+              <button class="clear-input-btn" (click)="filtroTexto.set('')" title="Borrar texto">✕</button>
+            }
+          </div>
+
+          <div class="filter-controls">
+            <div class="select-wrapper">
+              <label for="filtro-curso">Curso:</label>
+              <select 
+                id="filtro-curso" 
+                [ngModel]="filtroCurso()" 
+                (ngModelChange)="filtroCurso.set($event)"
+                class="curso-select"
+              >
+                @for (c of cursosDisponibles(); track c) {
+                  <option [value]="c">{{ c === 'TODOS' ? '— Todos los Cursos —' : c }}</option>
+                }
+              </select>
+            </div>
+
+            @if (filtroTexto() || filtroCurso() !== 'TODOS') {
+              <button class="btn-reset-filters" (click)="limpiarFiltros()" title="Restablecer filtros">
+                Limpiar Filtros
+              </button>
+            }
+          </div>
+        </div>
+
+        <!-- Indicador de resultados activos -->
+        <div class="results-header">
+          <span class="results-count">Mostrando <strong>{{ tareasFiltradas().length }}</strong> tarea(s)</span>
+          @if (!isOnline()) {
+            <span class="cache-badge">Modo Offline Activo · Servido desde Cache Storage</span>
+          }
+        </div>
+
+        <!-- Grid de Tarjetas de Tareas -->
+        @if (tareasFiltradas().length > 0) {
+          <div class="tasks-grid">
+            @for (tarea of tareasFiltradas(); track tarea.id) {
+              <article class="task-card">
+                <div class="card-top">
+                  <span class="course-tag">{{ tarea.curso }}</span>
+                  <span class="status-tag" [class.tag-pending]="tarea.estadoAcademico === 'PENDIENTE'" [class.tag-progress]="tarea.estadoAcademico === 'EN_PROGRESO'">
+                    {{ tarea.estadoAcademico === 'PENDIENTE' ? 'Pendiente' : 'En Progreso' }}
+                  </span>
+                </div>
+
+                <h3 class="task-title">{{ tarea.titulo }}</h3>
+                <p class="task-description">{{ tarea.descripcion }}</p>
+
+                <div class="card-meta">
+                  <div class="meta-item">
+                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                      <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    <span>Límite: <strong>{{ tarea.fechaEntrega }}</strong></span>
+                  </div>
+
+                  @if (tarea.archivosAdjuntos?.length) {
+                    <div class="meta-item">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+                      </svg>
+                      <span>{{ tarea.archivosAdjuntos?.length }} adjuntos</span>
+                    </div>
+                  }
+                </div>
+
+                <div class="card-actions">
+                  <button class="btn-action-outline" (click)="verDetalleTarea(tarea)">
+                    Ver Detalle
+                  </button>
+                  <button class="btn-action-primary" (click)="iniciarEntrega(tarea)">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                      <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                      <path d="M2 2l7.586 7.586"></path>
+                      <circle cx="11" cy="11" r="2"></circle>
+                    </svg>
+                    Entregar Tarea
+                  </button>
+                </div>
+              </article>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <h3>No se encontraron tareas</h3>
+            <p>No hay tareas que coincidan con los filtros aplicados.</p>
+            <button class="btn-action-primary" (click)="limpiarFiltros()">Restablecer búsqueda</button>
+          </div>
+        }
+      </section>
+    }
+
+    <!-- 2. VISTA DETALLE DE TAREA -->
+    @if (vistaActual() === 'detalle' && tareaSeleccionada()) {
+      <section class="section-detail">
+        <div class="detail-header">
+          <button class="btn-back" (click)="cambiarVista('catalogo')">
+            ← Volver al listado
+          </button>
+          <span class="course-pill">{{ tareaSeleccionada()?.curso }}</span>
+        </div>
+
+        <div class="detail-card">
+          <div class="detail-banner">
+            <div class="status-badge" [class.tag-pending]="tareaSeleccionada()?.estadoAcademico === 'PENDIENTE'">
+              Estado: {{ tareaSeleccionada()?.estadoAcademico }}
+            </div>
+            <span class="due-date">Fecha límite de entrega: <strong>{{ tareaSeleccionada()?.fechaEntrega }}</strong></span>
+          </div>
+
+          <h2 class="detail-title">{{ tareaSeleccionada()?.titulo }}</h2>
+
+          <div class="detail-section">
+            <h4 class="section-label">Descripción de la actividad</h4>
+            <p class="section-text">{{ tareaSeleccionada()?.descripcion }}</p>
+          </div>
+
+          <div class="detail-section">
+            <h4 class="section-label">Instrucciones de entrega</h4>
+            <p class="section-text instructions-box">{{ tareaSeleccionada()?.instrucciones }}</p>
+          </div>
+
+          @if (tareaSeleccionada()?.archivosAdjuntos?.length) {
+            <div class="detail-section">
+              <h4 class="section-label">Material de apoyo y archivos adjuntos</h4>
+              <div class="attachments-list">
+                @for (file of tareaSeleccionada()?.archivosAdjuntos; track file) {
+                  <div class="attachment-item">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                      <polyline points="13 2 13 9 20 9"></polyline>
+                    </svg>
+                    <span class="file-name">{{ file }}</span>
+                    <span class="file-action">Consultar</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <div class="detail-footer">
+            <button class="btn-action-primary large" (click)="iniciarEntrega(tareaSeleccionada()!)">
+              Comenzar Entrega de Tarea →
+            </button>
+          </div>
+        </div>
+      </section>
+    }
+
+    <!-- 3. VISTA FORMULARIO DE ENTREGA (TH-02, TH-03, TH-04) -->
+    @if (vistaActual() === 'entregar') {
+      <section class="section-delivery">
+        <div class="detail-header">
+          <button class="btn-back" (click)="cambiarVista('catalogo')">
+            ← Cancelar y volver
+          </button>
+          <span class="course-pill">Módulo de Entrega</span>
+        </div>
+
+        <div class="delivery-card">
+          <div class="delivery-card-header">
+            <h3>Entregar Trabajo Académico</h3>
+            <p class="delivery-card-sub">La entrega será persistida inmediatamente en tu base de datos local IndexedDB.</p>
+          </div>
+
+          <!-- Información de la Tarea Asignada (TH-03) -->
+          @if (tareaSeleccionada()) {
+            <div class="assigned-task-box">
+              <div class="assigned-badge">Tarea Relacionada</div>
+              <h4 class="assigned-title">{{ tareaSeleccionada()?.titulo }}</h4>
+              <div class="assigned-info">
+                <span><strong>Curso:</strong> {{ tareaSeleccionada()?.curso }}</span>
+                <span><strong>Límite:</strong> {{ tareaSeleccionada()?.fechaEntrega }}</span>
+              </div>
+            </div>
+          } @else {
+            <div class="alert-box error">
+              No hay una tarea seleccionada. Por favor regrese y elija una tarea.
+            </div>
+          }
+
+          <!-- Formulario Validado (TH-02) -->
+          <div class="form-group">
+            <label for="comentario-input" class="form-label">
+              Comentario o Evidencia de la Entrega <span class="required">*</span>
+            </label>
+            <textarea
+              id="comentario-input"
+              rows="5"
+              class="form-textarea"
+              placeholder="Escribe la justificación de tu entrega, repositorio de código, detalles de la implementación o notas para el instructor..."
+              [ngModel]="comentarioEntrega()"
+              (ngModelChange)="comentarioEntrega.set($event)"
+            ></textarea>
+            <span class="char-count">Longitud mínima: 5 caracteres</span>
+          </div>
+
+          <!-- Mensajes de Validación y Error de IndexedDB (TH-02, TH-08) -->
+          @if (errorValidacion()) {
+            <div class="alert-box error" role="alert">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+              </svg>
+              <span>{{ errorValidacion() }}</span>
+            </div>
+          }
+
+          <!-- Mensaje de Éxito Persistido -->
+          @if (mensajeExito()) {
+            <div class="alert-box success" role="alert">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span>{{ mensajeExito() }}</span>
+            </div>
+          }
+
+          <!-- Aviso de Estado Inicial y Transparencia Técnica -->
+          <div class="pwa-note-card">
+            <div class="note-icon">💡</div>
+            <div class="note-content">
+              <strong>Control Honesto de Estado:</strong>
+              <p>Toda nueva entrega se guarda de inmediato en <code>IndexedDB</code> con estado inicial <code>PENDIENTE</code>. Si estás sin conexión, se conserva de forma segura tras recargar el navegador.</p>
+            </div>
+          </div>
+
+          <div class="delivery-actions">
+            <button class="btn-cancel" (click)="cambiarVista('catalogo')" [disabled]="enviando()">
+              Cancelar
+            </button>
+            <button class="btn-submit" (click)="registrarEntrega()" [disabled]="enviando()">
+              @if (enviando()) {
+                <span>Guardando en IndexedDB...</span>
+              } @else {
+                <span>Guardar Entrega Localmente</span>
+              }
+            </button>
+          </div>
+        </div>
+      </section>
+    }
+
+    <!-- 4. VISTA BANDEJA LOCAL "MIS ENTREGAS LOCALES" (TH-03, TH-04, TH-05, TH-06, TH-07) -->
+    @if (vistaActual() === 'bandeja') {
+      <section class="section-tray">
+        <div class="tray-header">
+          <div>
+            <h2 class="tray-title">Bandeja de Entregas Locales</h2>
+            <p class="tray-sub">Entregas guardadas en el almacenamiento persistente <code>IndexedDB</code> del navegador.</p>
+          </div>
+
+          <!-- Botón de Reintento Controlado (TH-06) -->
+          <button class="btn-sync-retry" (click)="reintentarSincronizacion()" [disabled]="sincronizando()">
+            <svg class="sync-icon" [class.spinning]="sincronizando()" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+            </svg>
+            <span>{{ sincronizando() ? 'Verificando red...' : 'Reintentar Sincronización' }}</span>
+          </button>
+        </div>
+
+        <!-- Banner de Conectividad y Sincronización Honesta -->
+        @if (mensajeSincronizacion()) {
+          <div class="alert-box info" role="status">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <span>{{ mensajeSincronizacion() }}</span>
+          </div>
+        }
+
+        <!-- Resumen de Contadores (Regla TH-05) -->
+        <div class="tray-counters-grid">
+          <div class="counter-card amber">
+            <span class="counter-val">{{ totalPendientes() }}</span>
+            <div class="counter-detail">
+              <span class="counter-title">Pendientes en IndexedDB</span>
+              <span class="counter-desc">Registros almacenados localmente listos para sincronizar</span>
+            </div>
+          </div>
+
+          <div class="counter-card green">
+            <span class="counter-val">{{ totalSincronizadas() }}</span>
+            <div class="counter-detail">
+              <span class="counter-title">Sincronizadas en API</span>
+              <span class="counter-desc">Confirmadas con respuesta remota HTTP 200</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Entregas Persistidas -->
+        @if (entregasLocales().length > 0) {
+          <div class="tray-list">
+            @for (item of entregasLocales(); track item.id) {
+              <div class="tray-card">
+                <div class="tray-card-top">
+                  <div class="tray-card-identifiers">
+                    <span class="id-tag">ID Local #{{ item.id }}</span>
+                    <span class="sync-status-badge" [class.status-pending]="item.estadoSincronizacion === 'PENDIENTE'" [class.status-synced]="item.estadoSincronizacion === 'SINCRONIZADO'">
+                      <span class="badge-dot"></span>
+                      {{ item.estadoSincronizacion }}
+                    </span>
+                  </div>
+                  <span class="date-tag">{{ item.fechaRegistro }}</span>
+                </div>
+
+                <div class="tray-card-body">
+                  <span class="tray-course-label">{{ item.curso }}</span>
+                  <h4 class="tray-task-title">{{ item.tituloTarea }}</h4>
+                  <p class="tray-comment">"{{ item.comentario }}"</p>
+                </div>
+
+                <div class="tray-card-bottom">
+                  <div class="attempts-info">
+                    <span>Intentos de sincronización: <strong>{{ item.intentosSincronizacion || 0 }}</strong></span>
+                  </div>
+
+                  <div class="card-buttons">
+                    <button class="btn-detail-sm" (click)="verDetalleEntrega(item)">
+                      Detalle
+                    </button>
+                    <!-- TH-07: Botón eliminar con confirmación modal requerida -->
+                    <button class="btn-delete-sm" (click)="pedirConfirmacionEliminar(item)" title="Eliminar registro">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" width="54" height="54" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <h3>Bandeja vacía</h3>
+            <p>Aún no has registrado ninguna entrega local en este dispositivo.</p>
+            <button class="btn-action-primary" (click)="cambiarVista('catalogo')">
+              Explorar Tareas Disponibles
+            </button>
+          </div>
+        }
+      </section>
+    }
+
+  </main>
+
+  <!-- MODAL DE CONFIRMACIÓN DE ELIMINACIÓN (Regla TH-07: Cancelar conserva; confirmar elimina) -->
+  @if (entregaParaEliminar()) {
+    <div class="modal-backdrop">
+      <div class="modal-dialog">
+        <div class="modal-icon-warning">
+          <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+        </div>
+        <h3 class="modal-title">¿Eliminar esta entrega local?</h3>
+        <p class="modal-message">
+          Se eliminará permanentemente la entrega del curso <strong>{{ entregaParaEliminar()?.curso }}</strong> (Registro #{{ entregaParaEliminar()?.id }}) almacenada en IndexedDB. Esta acción no se puede deshacer.
+        </p>
+
+        <div class="modal-actions">
+          <button class="btn-modal-cancel" (click)="cancelarEliminacion()">
+            Cancelar (Conservar)
+          </button>
+          <button class="btn-modal-delete" (click)="confirmarEliminacion()">
+            Confirmar y Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL DE DETALLE COMPLETO DE ENTREGA -->
+  @if (entregaVerDetalle()) {
+    <div class="modal-backdrop" (click)="cerrarDetalleEntrega()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-head">
+          <h3>Detalle de Entrega Persistida</h3>
+          <button class="btn-close-modal" (click)="cerrarDetalleEntrega()">✕</button>
+        </div>
+
+        <div class="modal-body-content">
+          <div class="info-row">
+            <span class="label">ID de Registro (IndexedDB):</span>
+            <span class="val">#{{ entregaVerDetalle()?.id }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Curso:</span>
+            <span class="val">{{ entregaVerDetalle()?.curso }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Título de Tarea:</span>
+            <span class="val">{{ entregaVerDetalle()?.tituloTarea }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Fecha y Hora de Registro:</span>
+            <span class="val">{{ entregaVerDetalle()?.fechaRegistro }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Estado de Sincronización:</span>
+            <span class="val badge-highlight">{{ entregaVerDetalle()?.estadoSincronizacion }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Intentos Realizados:</span>
+            <span class="val">{{ entregaVerDetalle()?.intentosSincronizacion || 0 }}</span>
+          </div>
+
+          <div class="info-comment-box">
+            <span class="label">Comentario de la entrega:</span>
+            <p>{{ entregaVerDetalle()?.comentario }}</p>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-action-primary" (click)="cerrarDetalleEntrega()">Cerrar Detalle</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- FOOTER TÉCNICO INFORMATIVO SENATI -->
+  <footer class="app-footer">
+    <div class="footer-wrap">
+      <div class="footer-brand">
+        <strong>SENATI · Escuela de Tecnologías de la Información</strong>
+        <p>Taller PWA - Angular 19 + Service Worker + Cache Storage + IndexedDB</p>
+      </div>
+      <div class="footer-tags">
+        <span class="footer-tag">Angular 19 Standalone</span>
+        <span class="footer-tag">IndexedDB API</span>
+        <span class="footer-tag">ngsw-worker</span>
+      </div>
+    </div>
+  </footer>
+</div>
