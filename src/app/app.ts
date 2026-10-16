@@ -28,10 +28,10 @@ export class App implements OnInit {
   perfilEstudiante = signal({
     nombre: 'André Zapata',
     carrera: 'Ingeniería de Software con IA',
-    codigo: 'SEN-00482910',
-    semestre: 'VI Semestre',
+    codigo: '1679960',
+    semestre: 'IV Semestre',
     sede: 'Lima - Sede Central',
-    correo: 'andrebryamzapatavega@gmail.com'
+    correo: '1679960@senati.pe'
   });
 
   // Lista de tareas cargadas desde JSON / cache
